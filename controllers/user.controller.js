@@ -1,7 +1,6 @@
-const { generateAccessToken } = require("../utils/jwtFunctions");
-const bcrypt = require("bcryptjs");
 const mysql = require("mysql2");
 const config = require("../config");
+const { getRecords, insertRecord, deleteRecord } = require("../utils/sqlFunctions");
 
 const con = mysql.createConnection(config);
 
@@ -62,62 +61,51 @@ const getFollowers = async (req, res) => {
   }
 };
 
-const getTweetById = async (req, res) => {
-  const { id: userId } = req.body;
-  const { tweetId } = req.params;
+const getAllTweets = async (req, res) => {
+  const { userId } = req.headers;
   try {
-    const sql = `SELECT tweet.tweet_id, tweet, tweet.user_id as tweetUserId, tweet.date_time as tweetDateTime, COUNT(*) as replies FROM tweet
-                INNER JOIN reply
-                ON tweet.tweet_id = reply.tweet_id
-                NATURAL JOIN follower
-                WHERE tweet.tweet_id = ${tweetId} AND tweet.user_id = follower.following_user_id AND follower.follower_user_id = ${userId}
-                ORDER BY tweetDateTime DESC`;
-
-    const tweetData = await new Promise((resolve, reject) => {
-      return con.query(sql, (error, result) => {
-        if (error) return res.status(400).json({ message: error });
-        else {
-          if (!result[0].tweet_id) {
-            return resolve(null);
-          } else {
-            return resolve(result[0]);
-          }
-        }
-      });
-    });
-
-    const likeSql = `SELECT COUNT(*) as likes FROM \`like\`
-                      WHERE tweet_id = ${tweetId}`;
-    con.query(likeSql, (error, result) => {
-      if (error) return res.status(400).json({ message: error });
-      else {
-        return res.status(200).json({
-          data: tweetData ? { ...tweetData, likes: result[0].likes } : null,
-        });
-      }
-    });
+    const results = await getRecords("tweet", "user_id", userId);
+    return res.status(200).json({ data: results });
   } catch (e) {
-    return res.status(400).json({ message: e.error });
+    return res.status(400).json({ message: "Invalid request!" });
   }
 };
 
-const getLikeNameByTweetId = async (req, res) => {
-  const { tweetId } = req.params;
+const createTweet = async (req, res) => {
+  const { tweet } = req.body;
+  const { userId } = req.headers;
   try {
-    const sql = `SELECT GROUP_CONCAT(name) as likes FROM user
-                INNER JOIN \`like\`
-                ON user.user_id = \`like\`.user_id 
-                WHERE \`like\`.tweet_id = ${tweetId}`;
-
-    con.query(sql, (error, result) => {
-      if (error) return res.status(400).json({ message: "Invalid request!" });
-      else {
-        return res.status(200).json({ likes: result[0].likes.split(",") ?? null });
-      }
-    });
+    const payload = {
+      tweet,
+      user_id: userId,
+    };
+    await insertRecord("tweet", payload);
+    return res.status(200).json({ message: "Tweet created successfully!" });
   } catch (e) {
-    return res.status(400).json({ message: e.error });
+    return res.status(400).json({ message: "Invalid request!" });
   }
 };
 
-module.exports = { getUserFeed, getFollowing, getFollowers, getTweetById, getLikeNameByTweetId };
+const deleteTweet = async (req, res) => {
+  const { tweetId } = req.params;
+  const { userId } = req.headers;
+  try {
+    const payload = {
+      tweet_id: tweetId,
+      user_id: userId
+    };
+    await deleteRecord("tweet", payload);
+    return res.status(200).json({ message: "Tweet deleted successfully!" });
+  } catch (e) {
+    return res.status(400).json({ message: "Invalid request!" });
+  }
+};
+
+module.exports = {
+  getUserFeed,
+  getFollowing,
+  getFollowers,
+  getAllTweets,
+  createTweet,
+  deleteTweet
+};
