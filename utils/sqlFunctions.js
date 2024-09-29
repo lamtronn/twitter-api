@@ -31,4 +31,8 @@ const insertRecord = (tableName, record) => {
   });
 };
 
+const getRecords = (tableName, record) => {
+  
+}
+
 module.exports = { createTable, checkExistingRecords, insertRecord };
