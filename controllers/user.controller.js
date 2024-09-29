@@ -91,9 +91,9 @@ const getTweetById = async (req, res) => {
     con.query(likeSql, (error, result) => {
       if (error) return res.status(400).json({ message: error });
       else {
-        return res
-          .status(200)
-          .json({ data: tweetData ? { ...tweetData, likes: result[0].likes } : null });
+        return res.status(200).json({
+          data: tweetData ? { ...tweetData, likes: result[0].likes } : null,
+        });
       }
     });
   } catch (e) {
@@ -101,4 +101,23 @@ const getTweetById = async (req, res) => {
   }
 };
 
-module.exports = { getUserFeed, getFollowing, getFollowers, getTweetById };
+const getLikeNameByTweetId = async (req, res) => {
+  const { tweetId } = req.params;
+  try {
+    const sql = `SELECT GROUP_CONCAT(name) as likes FROM user
+                INNER JOIN \`like\`
+                ON user.user_id = \`like\`.user_id 
+                WHERE \`like\`.tweet_id = ${tweetId}`;
+
+    con.query(sql, (error, result) => {
+      if (error) return res.status(400).json({ message: "Invalid request!" });
+      else {
+        return res.status(200).json({ likes: result[0].likes.split(",") ?? null });
+      }
+    });
+  } catch (e) {
+    return res.status(400).json({ message: e.error });
+  }
+};
+
+module.exports = { getUserFeed, getFollowing, getFollowers, getTweetById, getLikeNameByTweetId };
